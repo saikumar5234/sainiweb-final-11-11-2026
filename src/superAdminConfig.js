@@ -8,7 +8,7 @@ export const SUPER_ADMIN = {
 // Default phone number and OTP for admin login
 // This mobile number must match the backend superadmin.mobile configuration
 export const ADMIN_OTP_CONFIG = {
-  defaultPhone: '7013269136',
-  defaultOTP: '123456'
+  defaultPhone: '9000022066',
+  defaultOTP: '000000'
 };
 

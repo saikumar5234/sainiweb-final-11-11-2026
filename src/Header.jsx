@@ -849,6 +849,16 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
             return 'U';
           };
 
+          const formatPhoneNumber = (phone) => {
+            if (!phone) return '90000 22066';
+            const clean = phone.toString().replace(/\D/g, '');
+            if (clean === '7013269136') return '90000 22066';
+            if (clean.length === 10) {
+              return `${clean.slice(0, 5)} ${clean.slice(5)}`;
+            }
+            return phone;
+          };
+
           const getStatusChip = () => {
             switch (status?.toUpperCase()) {
               case 'APPROVED':
@@ -906,7 +916,7 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
                         Mobile
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        +91 {mobile || 'N/A'}
+                        +91 {formatPhoneNumber(mobile)}
                       </Typography>
                     </Box>
                   </Box>

@@ -82,6 +82,7 @@ const AdminLogin = ({ onToggleAuth, onAdminLoginSuccess, onShowOTP, onShowAdminS
               email: normalizedEmail, // Use normalized email
               userData: data,
               phone: ADMIN_OTP_CONFIG.defaultPhone,
+              mobile: ADMIN_OTP_CONFIG.defaultPhone,
               isAdminLogin: true
             });
           } else {
@@ -98,6 +99,7 @@ const AdminLogin = ({ onToggleAuth, onAdminLoginSuccess, onShowOTP, onShowAdminS
               email: normalizedEmail, // Use normalized email
               userData: data,
               phone: ADMIN_OTP_CONFIG.defaultPhone,
+              mobile: ADMIN_OTP_CONFIG.defaultPhone,
               isAdminLogin: true
             });
           } else {

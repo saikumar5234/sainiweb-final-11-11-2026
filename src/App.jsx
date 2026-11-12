@@ -76,7 +76,7 @@ function App() {
     if (otpData) {
       return (
         <OTPVerification
-          mobile={otpData.mobile}
+          mobile={otpData.mobile || otpData.phone}
           userId={otpData.userId}
           onVerifySuccess={handleOTPVerifySuccess}
           onCancel={handleOTPCancel}

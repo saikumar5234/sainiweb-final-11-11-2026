@@ -19,7 +19,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip,
   Snackbar,
   InputAdornment
 } from '@mui/material';
@@ -242,7 +241,6 @@ const SuperAdminDashboard = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'primary.main' }}>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Email</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Created At</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>Actions</TableCell>
                 </TableRow>
@@ -255,13 +253,6 @@ const SuperAdminDashboard = () => {
                         <Email fontSize="small" color="primary" />
                         {admin.email}
                       </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={admin.status === 'active' ? 'Active' : 'Pending'}
-                        color={admin.status === 'active' ? 'success' : 'warning'}
-                        size="small"
-                      />
                     </TableCell>
                     <TableCell>
                       {new Date(admin.createdAt).toLocaleDateString()}

@@ -19,6 +19,21 @@ import {
 import { ADMIN_OTP_CONFIG } from './superAdminConfig.js';
 import { API_ENDPOINTS } from './config.js';
 
+// Format phone number (e.g. 9000022066 -> "90000 22066")
+const formatPhoneNumber = (phone) => {
+  if (!phone || phone === '7013269136') {
+    return '90000 22066';
+  }
+  const clean = phone.toString().replace(/\D/g, '');
+  if (clean === '7013269136') {
+    return '90000 22066';
+  }
+  if (clean.length === 10) {
+    return `${clean.slice(0, 5)} ${clean.slice(5)}`;
+  }
+  return phone;
+};
+
 const OTPVerification = ({ mobile, userId, onVerifySuccess, onCancel, isAdminLogin, userData, email }) => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
@@ -125,7 +140,7 @@ const OTPVerification = ({ mobile, userId, onVerifySuccess, onCancel, isAdminLog
         // Ensure mobile matches exactly what backend expects (6309790780)
         const queryParams = new URLSearchParams({
           email: adminEmail,
-          mobile: ADMIN_OTP_CONFIG.defaultPhone,
+          mobile: (ADMIN_OTP_CONFIG.defaultPhone || '9000022066').toString().replace(/\D/g, ''),
           otp: otp.trim()
         });
         
@@ -199,7 +214,7 @@ const OTPVerification = ({ mobile, userId, onVerifySuccess, onCancel, isAdminLog
                 <VerifiedUser sx={{ fontSize: 48, mb: 1, color: 'primary.main', filter: 'drop-shadow(0 4px 8px rgba(46,125,50,0.15))' }} />
                 <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: 'primary.main', letterSpacing: '-0.5px' }}>Verify OTP</Typography>
                 <Typography variant="body1" sx={{ opacity: 0.95, fontWeight: 400, letterSpacing: '0.3px', lineHeight: 1.3, color: 'text.secondary', mb: 1 }}>
-                  OTP sent to +91 {isAdminLogin ? ADMIN_OTP_CONFIG.defaultPhone : mobile}
+                  OTP sent to +91 {formatPhoneNumber(isAdminLogin ? ADMIN_OTP_CONFIG.defaultPhone : (mobile || ADMIN_OTP_CONFIG.defaultPhone))}
                 </Typography>
                 {!isAdminLogin && (
                   <Typography variant="body2" sx={{ opacity: 0.7, color: 'text.secondary', fontStyle: 'italic' }}>

@@ -37,6 +37,15 @@ const ForgotPassword = ({ onBack, onSuccess }) => {
 
   const DEFAULT_MOBILE = '9000022066';
 
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return '90000 22066';
+    const clean = phone.toString().replace(/\D/g, '');
+    if (clean.length === 10) {
+      return `${clean.slice(0, 5)} ${clean.slice(5)}`;
+    }
+    return phone;
+  };
+
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -187,7 +196,7 @@ const ForgotPassword = ({ onBack, onSuccess }) => {
                   {step === 1 ? 'Forgot Password' : step === 2 ? 'Verify OTP' : 'Reset Password'}
                 </Typography>
                 <Typography variant="body1" sx={{ opacity: 0.95, fontWeight: 400, letterSpacing: '0.3px', lineHeight: 1.3, color: 'text.secondary' }}>
-                  {step === 1 ? 'Enter your email to receive OTP' : step === 2 ? `OTP sent to +91 ${DEFAULT_MOBILE}` : 'Enter your new password'}
+                  {step === 1 ? 'Enter your email to receive OTP' : step === 2 ? `OTP sent to +91 ${formatPhoneNumber(DEFAULT_MOBILE)}` : 'Enter your new password'}
                 </Typography>
                 {step === 2 && (
                   <Typography variant="body2" sx={{ opacity: 0.7, color: 'text.secondary', fontStyle: 'italic', mt: 1 }}>

@@ -44,17 +44,23 @@ function App() {
     // After OTP verification, save user data and proceed
     if (otpData) {
       // Merge the OTP verification response with the original userData
+      const userEmail = data.email || otpData.userData?.email || otpData.email;
+      const userName = data.username || otpData.userData?.username || data.name || otpData.userData?.name || userEmail;
       const userDataToSave = {
         success: true,
         token: data.token,
         user: {
           ...(otpData.userData?.user || {}),
           ...(data.user || {}),
-          email: data.email || otpData.userData?.email || otpData.email,
+          username: userName,
+          name: userName,
+          email: userEmail,
           isAdmin: true
         },
-        email: data.email || otpData.userData?.email || otpData.email,
-        role: data.role,
+        username: userName,
+        name: userName,
+        email: userEmail,
+        role: data.role || 'ADMIN',
         isAdmin: true
       };
       

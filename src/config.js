@@ -1,6 +1,10 @@
 // Backend configuration
-// Use environment variable if available, otherwise use production URL
-export const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ||'https://api.sainidryfruits.com';
+// Use environment variable if available, otherwise use localhost in dev or production URL
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8080'
+    : 'https://api.sainidryfruits.com');
 // export const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD ? '/api' : 'https://api.sainidryfruits.com');
 // export const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://10.164.59.124:8080';
 // Translation API configuration
@@ -49,10 +53,18 @@ export const API_ENDPOINTS = {
   
   // Sub-admin management endpoints
   SUB_ADMINS: `${BACKEND_BASE_URL}/api/admin/sub-admins`,
+  SUBADMINS: `${BACKEND_BASE_URL}/api/admin/subadmins`,
+  SUBADMIN_DELETE: (id) => `${BACKEND_BASE_URL}/api/admin/subadmins/${id}`,
   
   // Admin OTP endpoints
   ADMIN_SEND_OTP: `${BACKEND_BASE_URL}/api/admin/send-otp`,
   ADMIN_VERIFY_OTP: `${BACKEND_BASE_URL}/api/admin/verify-otp`,
+
+  // Superadmin endpoints
+  SUPERADMIN_LOGIN: `${BACKEND_BASE_URL}/api/superadmin/login`,
+  SUPERADMIN_FORGOT_PASSWORD: `${BACKEND_BASE_URL}/api/superadmin/forgot-password`,
+  SUPERADMIN_VERIFY_OTP: `${BACKEND_BASE_URL}/api/superadmin/verify-otp`,
+  SUPERADMIN_RESET_PASSWORD: `${BACKEND_BASE_URL}/api/superadmin/reset-password`,
   
   // Banner endpoints
   BANNER_TEXT: `${BACKEND_BASE_URL}/api/banner-text`,

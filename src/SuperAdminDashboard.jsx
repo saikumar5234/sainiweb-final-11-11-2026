@@ -27,12 +27,24 @@ import {
   Email,
   Delete,
   AdminPanelSettings,
-  PersonAdd,
-  CheckCircle,
-  Cancel
+  PersonAdd
 } from '@mui/icons-material';
 import CircularProgress from '@mui/material/CircularProgress';
-import { API_ENDPOINTS } from './config.js';
+import { API_ENDPOINTS, BACKEND_BASE_URL } from './config.js';
+
+// Helper to retrieve current Superadmin JWT token from localStorage
+const getAuthToken = () => {
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      return u?.token || u?.user?.token || '';
+    }
+  } catch {
+    return '';
+  }
+  return '';
+};
 
 const SuperAdminDashboard = () => {
   const [subAdmins, setSubAdmins] = useState([]);
@@ -50,11 +62,47 @@ const SuperAdminDashboard = () => {
   const loadSubAdmins = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_ENDPOINTS.SUB_ADMINS, {
+      const token = getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      // Try /api/admin/subadmins first (matches SubAdminManagementController)
+      let response = await fetch(API_ENDPOINTS.SUBADMINS || `${BACKEND_BASE_URL}/api/admin/subadmins`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers
       });
-      
+
+      // If 404, fallback to /api/admin/sub-admins (with hyphen)
+      if (response.status === 404 && API_ENDPOINTS.SUB_ADMINS) {
+        response = await fetch(API_ENDPOINTS.SUB_ADMINS, {
+          method: 'GET',
+          headers
+        });
+      }
+
+      // If remote returned 404, try localhost:8080 fallback in development
+      if (response.status === 404) {
+        try {
+          const localRes = await fetch('http://localhost:8080/api/admin/subadmins', {
+            method: 'GET',
+            headers
+          });
+          if (localRes.ok) {
+            response = localRes;
+          } else {
+            const localHyphen = await fetch('http://localhost:8080/api/admin/sub-admins', {
+              method: 'GET',
+              headers
+            });
+            if (localHyphen.ok) response = localHyphen;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
       if (response.ok) {
         const data = await response.json();
         // Handle different response formats
@@ -68,7 +116,6 @@ const SuperAdminDashboard = () => {
           setSubAdmins([]);
         }
       } else {
-        // If endpoint doesn't support GET, start with empty array
         setSubAdmins([]);
       }
     } catch (e) {
@@ -96,18 +143,33 @@ const SuperAdminDashboard = () => {
     }
 
     // Check if email already exists locally
-    if (subAdmins.some(admin => admin.email.toLowerCase() === newEmail.toLowerCase())) {
+    if (subAdmins.some((admin) => admin.email.toLowerCase() === newEmail.toLowerCase())) {
       setEmailError('This email is already registered');
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.SUB_ADMINS, {
+      const token = getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      // Try /api/admin/subadmins first
+      let response = await fetch(API_ENDPOINTS.SUBADMINS || `${BACKEND_BASE_URL}/api/admin/subadmins`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email: newEmail.toLowerCase() })
       });
+
+      if (response.status === 404 && API_ENDPOINTS.SUB_ADMINS) {
+        response = await fetch(API_ENDPOINTS.SUB_ADMINS, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ email: newEmail.toLowerCase() })
+        });
+      }
 
       const data = await response.json();
 
@@ -118,7 +180,6 @@ const SuperAdminDashboard = () => {
         setNewEmail('');
         setOpenDialog(false);
       } else {
-        // Handle API error response
         const errorMessage = data.error || data.message || 'Failed to create sub-admin email. Please try again.';
         if (errorMessage.toLowerCase().includes('already') || errorMessage.toLowerCase().includes('exists')) {
           setEmailError(errorMessage);
@@ -140,30 +201,78 @@ const SuperAdminDashboard = () => {
     }
 
     setLoading(true);
+    setError('');
+    setSuccess('');
+
     try {
-      // Try to delete via API if endpoint supports it
-      // Note: This assumes the API supports DELETE with id in body or query
-      const response = await fetch(`${API_ENDPOINTS.SUB_ADMINS}/${id}`, {
+      const token = getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      // Call DELETE /api/admin/subadmins/{id} with Authorization: Bearer <token>
+      const deleteUrl = API_ENDPOINTS.SUBADMIN_DELETE
+        ? API_ENDPOINTS.SUBADMIN_DELETE(id)
+        : `${BACKEND_BASE_URL}/api/admin/subadmins/${id}`;
+
+      let response = await fetch(deleteUrl, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers
       });
 
+      // If remote 404s, try localhost:8080 fallback
+      if (response.status === 404 && !deleteUrl.includes('localhost:8080')) {
+        try {
+          const fallbackRes = await fetch(`http://localhost:8080/api/admin/subadmins/${id}`, {
+            method: 'DELETE',
+            headers
+          });
+          if (fallbackRes.ok || fallbackRes.status !== 404) {
+            response = fallbackRes;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      // If still 404, try /api/admin/sub-admins/{id} (with hyphen)
+      if (response.status === 404 && API_ENDPOINTS.SUB_ADMINS) {
+        try {
+          const hyphenRes = await fetch(`${API_ENDPOINTS.SUB_ADMINS}/${id}`, {
+            method: 'DELETE',
+            headers
+          });
+          if (hyphenRes.ok || hyphenRes.status !== 404) {
+            response = hyphenRes;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
       if (response.ok) {
-        // Reload the list after deletion
+        const data = await response.json().catch(() => ({}));
+        // Reload the list from the database so it reflects actual database state
         await loadSubAdmins();
-        setSuccess('Sub-admin email deleted successfully!');
+        setSuccess(data.message || 'Sub-admin deleted successfully!');
       } else {
-        // If API doesn't support DELETE, just remove from local state
-        const updated = subAdmins.filter(admin => admin.id !== id);
-        setSubAdmins(updated);
-        setSuccess('Sub-admin email removed from list!');
+        const data = await response.json().catch(() => ({}));
+        const errorMsg =
+          data.message ||
+          data.error ||
+          (response.status === 401
+            ? 'Superadmin authentication required. Please log in again.'
+            : response.status === 403
+            ? 'Only Superadmin can delete Subadmins.'
+            : response.status === 404
+            ? 'Subadmin not found in database.'
+            : 'Failed to delete sub-admin.');
+        setError(errorMsg);
       }
     } catch (err) {
       console.error('Error deleting sub-admin:', err);
-      // Fallback: remove from local state
-      const updated = subAdmins.filter(admin => admin.id !== id);
-      setSubAdmins(updated);
-      setSuccess('Sub-admin email removed from list!');
+      setError('Network error. Failed to delete sub-admin. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -180,16 +289,16 @@ const SuperAdminDashboard = () => {
             Manage sub-admin accounts
           </Typography>
         </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
-            onClick={() => setOpenDialog(true)}
-            sx={{ fontWeight: 'bold' }}
-            disabled={loading}
-          >
-            Create Sub-Admin Email
-          </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<Add />}
+          onClick={() => setOpenDialog(true)}
+          sx={{ fontWeight: 'bold' }}
+          disabled={loading}
+        >
+          Create Sub-Admin Email
+        </Button>
       </Box>
 
       <Snackbar
@@ -217,7 +326,7 @@ const SuperAdminDashboard = () => {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
           Sub-Admin Emails
         </Typography>
-        
+
         {loading && subAdmins.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CircularProgress sx={{ mb: 2 }} />
@@ -255,7 +364,7 @@ const SuperAdminDashboard = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      {new Date(admin.createdAt).toLocaleDateString()}
+                      {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Delete">
@@ -263,6 +372,7 @@ const SuperAdminDashboard = () => {
                           color="error"
                           size="small"
                           onClick={() => handleDeleteSubAdmin(admin.id)}
+                          disabled={loading}
                         >
                           <Delete />
                         </IconButton>
@@ -312,11 +422,13 @@ const SuperAdminDashboard = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setOpenDialog(false);
-            setNewEmail('');
-            setEmailError('');
-          }}>
+          <Button
+            onClick={() => {
+              setOpenDialog(false);
+              setNewEmail('');
+              setEmailError('');
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -334,4 +446,3 @@ const SuperAdminDashboard = () => {
 };
 
 export default SuperAdminDashboard;
-

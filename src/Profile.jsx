@@ -66,8 +66,11 @@ const Profile = ({ user }) => {
       if (foundUser) {
         // Combine backend user data with login user data (for isAdmin flag)
         setUserDetails({
+          ...user,
           ...foundUser,
-          isAdmin: user?.isAdmin || foundUser.email === 'admin@sainistores.com'
+          username: user?.username || user?.user?.username || foundUser.username,
+          isSuperAdmin: Boolean(user?.isSuperAdmin || user?.user?.isSuperAdmin || foundUser.isSuperAdmin || user?.role === 'SUPER_ADMIN' || foundUser.role === 'SUPER_ADMIN'),
+          isAdmin: Boolean(user?.isAdmin || user?.user?.isAdmin || user?.isSuperAdmin || user?.user?.isSuperAdmin || foundUser.isAdmin || foundUser.email === 'admin@sainistores.com')
         });
       } else {
         // If user not found in the list, use the logged-in user data
@@ -104,24 +107,36 @@ const Profile = ({ user }) => {
   }
 
   // Extract user data from /api/users response structure
-  const userId = displayUser.id || displayUser.userId || displayUser.user?.id;
-  const email = displayUser.email || displayUser.user?.email || displayUser.userName;
-  const mobile = displayUser.mobile || displayUser.user?.mobile || '9000022066';
-  const firstName = displayUser.firstName || displayUser.user?.firstName || '';
-  const lastName = displayUser.lastName || displayUser.user?.lastName || '';
+  const isSuperAdmin = Boolean(
+    displayUser.isSuperAdmin ||
+    displayUser.user?.isSuperAdmin ||
+    user?.isSuperAdmin ||
+    user?.user?.isSuperAdmin ||
+    displayUser.role === 'SUPER_ADMIN' ||
+    displayUser.user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.user?.role === 'SUPER_ADMIN'
+  );
+  const userId = displayUser.id || displayUser.userId || displayUser.user?.id || user?.userId || user?.id;
+  const username = displayUser.username || displayUser.user?.username || user?.username || user?.user?.username;
+  const email = displayUser.email || displayUser.user?.email || user?.email || user?.user?.email || displayUser.userName;
+  const mobile = displayUser.mobile || displayUser.user?.mobile || user?.mobile || user?.user?.mobile || '9000022066';
+  const firstName = displayUser.firstName || displayUser.user?.firstName || user?.firstName || '';
+  const lastName = displayUser.lastName || displayUser.user?.lastName || user?.lastName || '';
   const fullName = firstName && lastName 
     ? `${firstName} ${lastName}` 
-    : (displayUser.name || displayUser.user?.name || email || 'User');
-  const status = displayUser.status || displayUser.user?.status || (displayUser.isAdmin ? 'APPROVED' : 'PENDING');
-  const isAdmin = displayUser.isAdmin || email === 'admin@sainistores.com';
+    : (username || email || displayUser.name || displayUser.user?.name || (isSuperAdmin ? 'Super Admin' : 'User'));
+  const status = displayUser.status || displayUser.user?.status || (displayUser.isAdmin || isSuperAdmin ? 'APPROVED' : 'PENDING');
+  const isAdmin = Boolean(isSuperAdmin || displayUser.isAdmin || displayUser.user?.isAdmin || user?.isAdmin || user?.user?.isAdmin || email === 'admin@sainistores.com' || displayUser.role === 'ADMIN' || displayUser.role === 'SUB_ADMIN');
   const createdAt = displayUser.createdAt || displayUser.user?.createdAt;
   
   // Get initial for avatar
   const getInitials = () => {
     if (firstName && lastName) return `${firstName[0]}${lastName[0]}`.toUpperCase();
-    if (fullName && fullName !== email) return fullName[0].toUpperCase();
+    if (fullName && fullName !== 'User' && fullName !== 'Super Admin') return fullName[0].toUpperCase();
+    if (username) return username[0].toUpperCase();
     if (email) return email[0].toUpperCase();
-    return 'U';
+    return isSuperAdmin ? 'S' : 'U';
   };
 
   // Format phone number
@@ -198,14 +213,21 @@ const Profile = ({ user }) => {
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                     {fullName}
                   </Typography>
-                  {isAdmin && (
+                  {isSuperAdmin ? (
+                    <Chip
+                      icon={<AdminIcon />}
+                      label="Super Admin"
+                      color="primary"
+                      sx={{ fontWeight: 'bold' }}
+                    />
+                  ) : isAdmin ? (
                     <Chip
                       icon={<AdminIcon />}
                       label="Admin"
                       color="primary"
                       sx={{ fontWeight: 'bold' }}
                     />
-                  )}
+                  ) : null}
                   {getStatusChip()}
                 </Box>
                 <Divider sx={{ my: 2 }} />
@@ -218,7 +240,7 @@ const Profile = ({ user }) => {
                           Email Address
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {email || 'N/A'}
+                          {email || (username && username.includes('@') ? username : 'N/A')}
                         </Typography>
                       </Box>
                     </Box>
@@ -246,6 +268,21 @@ const Profile = ({ user }) => {
                           </Typography>
                           <Typography variant="body1" sx={{ fontWeight: 500 }}>
                             #{userId}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  )}
+                  {username && !username.includes('@') && (
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                        <PersonIcon color="primary" />
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Username
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {username}
                           </Typography>
                         </Box>
                       </Box>

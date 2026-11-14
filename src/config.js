@@ -24,6 +24,7 @@ export const TRANSLATION_CONFIG = {
 export const API_ENDPOINTS = {
   // Product endpoints
   PRODUCTS: `${BACKEND_BASE_URL}/api/products`,
+  PRODUCT_REORDER: `${BACKEND_BASE_URL}/api/products/reorder`,
   PRODUCT_PRICE: (productId) => `${BACKEND_BASE_URL}/api/products/${productId}/price`,
   PRODUCT_PRICE_HISTORY: (productId) => `${BACKEND_BASE_URL}/api/products/${productId}/price-history`,
   // GET /products/{productId}/images → List<Long> image IDs for product

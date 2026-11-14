@@ -22,6 +22,7 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
 import Fade from '@mui/material/Fade';
@@ -92,6 +93,9 @@ function TableView() {
     price: ''
   });
   const [updatingProduct, setUpdatingProduct] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [reorderSuccess, setReorderSuccess] = useState(false);
+  const [reorderError, setReorderError] = useState('');
   // Confirmation dialog states
   const [confirmDeleteSelectedOpen, setConfirmDeleteSelectedOpen] = useState(false);
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
@@ -203,13 +207,14 @@ function TableView() {
   };
 
   // Fetch products from Spring Boot backend
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const response = await fetch(API_ENDPOINTS.PRODUCTS);
       if (!response.ok) throw new Error('Failed to fetch products');
       const products = await response.json();
       // Adapt the data: imageUrls = imageIds and normalize disabled flag
+      // Display order returned from backend is strictly preserved
       const adapted = products
         .filter(p => isNumericId(p.id))
         .map(p => {
@@ -234,19 +239,73 @@ function TableView() {
             imageUrls: p.imageIds || [],
             isDisabled,
           };
-        })
-        .sort((a, b) => {
-          // Sort: active products first, disabled products at the end
-          if (a.isDisabled === b.isDisabled) return 0;
-          return a.isDisabled ? 1 : -1;
         });
       setData(adapted);
       setEditedData(adapted);
     } catch (error) {
       setData([]);
       setEditedData([]);
+    } finally {
+      if (showLoading) setLoading(false);
     }
-    setLoading(false);
+  };
+
+  // Handle row drag-and-drop reordering
+  const handleRowDrop = async (draggingRow, hoveredRow) => {
+    if (!draggingRow || !hoveredRow) return;
+
+    const draggingId = Number(draggingRow.original?.id ?? draggingRow.id);
+    const hoveredId = Number(hoveredRow.original?.id ?? hoveredRow.id);
+
+    if (!draggingId || !hoveredId || draggingId === hoveredId) return;
+
+    // Use current data list
+    const currentList = editMode ? editedData : data;
+
+    const fromIndex = currentList.findIndex(p => Number(p.id) === draggingId);
+    const toIndex = currentList.findIndex(p => Number(p.id) === hoveredId);
+
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+    // Optimistically update local state so table updates immediately
+    const reorderedList = [...currentList];
+    const [movedItem] = reorderedList.splice(fromIndex, 1);
+    reorderedList.splice(toIndex, 0, movedItem);
+
+    setData(reorderedList);
+    setEditedData(reorderedList);
+
+    // Prepare productIds payload for PUT /api/products/reorder
+    const productIds = reorderedList
+      .filter(p => isNumericId(p.id))
+      .map(p => Number(p.id));
+
+    setReordering(true);
+    setReorderError('');
+    try {
+      const response = await fetch(API_ENDPOINTS.PRODUCT_REORDER, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save product order (${response.status})`);
+      }
+
+      setReorderSuccess(true);
+      // Fetch latest ordered items from backend
+      await fetchProducts(false);
+    } catch (err) {
+      console.error('Error saving reordered products:', err);
+      setReorderError(err.message || 'Failed to save product order');
+      // Revert optimistic change on failure
+      await fetchProducts(false);
+    } finally {
+      setReordering(false);
+    }
   };
 
   useEffect(() => {
@@ -1952,6 +2011,65 @@ function TableView() {
         enableGlobalFilter={true}
         manualFiltering={false}
         enableColumnFilters={false}
+        enableRowOrdering={!editMode && !saving && !reordering}
+        autoResetPageIndex={false}
+        icons={{
+          DragHandleIcon: DragIndicatorIcon,
+        }}
+        displayColumnDefOptions={{
+          'mrt-row-drag': {
+            header: '',
+            Header: () => (
+              <Tooltip title="Drag & drop to reorder products">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <DragIndicatorIcon fontSize="small" sx={{ color: '#111 !important' }} />
+                </Box>
+              </Tooltip>
+            ),
+            size: 40,
+            grow: false,
+            muiTableHeadCellProps: {
+              sx: {
+                width: '40px',
+                minWidth: '40px',
+                maxWidth: '40px',
+                p: '0 4px',
+                textAlign: 'center',
+              },
+            },
+            muiTableBodyCellProps: {
+              sx: {
+                width: '40px',
+                minWidth: '40px',
+                maxWidth: '40px',
+                p: '0 4px',
+                textAlign: 'center',
+              },
+            },
+          },
+        }}
+        muiRowDragHandleProps={({ row, table }) => ({
+          title: 'Drag to reorder product',
+          sx: {
+            cursor: 'grab',
+            color: 'text.secondary',
+            p: 0.5,
+            '&:hover': {
+              color: 'primary.main',
+              backgroundColor: 'rgba(46,125,50,0.1)',
+            },
+            '&:active': {
+              cursor: 'grabbing',
+            },
+          },
+          onDragEnd: () => {
+            const { draggingRow, hoveredRow } = table.getState();
+            const sourceRow = draggingRow || row;
+            if (sourceRow && hoveredRow && sourceRow.id !== hoveredRow.id) {
+              handleRowDrop(sourceRow, hoveredRow);
+            }
+          },
+        })}
         getRowId={(row) => row.id.toString()}
         onRowSelectionChange={setRowSelection}
         filterFns={{
@@ -1961,13 +2079,17 @@ function TableView() {
         state={{
           rowSelection,
           globalFilter,
+          showProgressBars: reordering,
         }}
         onGlobalFilterChange={setGlobalFilter}
         initialState={{
           density: 'compact',
         }}
-        muiTableBodyRowProps={({ row }) => {
+        muiTableBodyRowProps={({ row, table }) => {
           const disabled = row?.original?.isDisabled;
+          const { draggingRow, hoveredRow } = table?.getState?.() || {};
+          const isDragging = draggingRow?.id === row.id;
+          const isHovered = hoveredRow?.id === row.id;
           return {
             sx: {
               '&:nth-of-type(odd)': {
@@ -1980,7 +2102,10 @@ function TableView() {
                 backgroundColor: disabled ? 'action.disabledBackground' : 'rgba(46,125,50,0.08)',
                 transition: 'background 0.2s',
               },
-              opacity: disabled ? 0.6 : 1,
+              opacity: isDragging ? 0.35 : isHovered ? 0.75 : (disabled ? 0.6 : 1),
+              borderTop: isHovered && !isDragging ? '2px solid #2e7d32' : undefined,
+              borderBottom: isHovered && !isDragging ? '2px solid #2e7d32' : undefined,
+              transition: 'opacity 0.15s, background-color 0.2s',
             },
           };
         }}
@@ -2831,6 +2956,38 @@ function TableView() {
           sx={{ width: '100%' }}
         >
           ✅ Product name translated successfully!
+        </MuiAlert>
+      </Snackbar>
+
+      {/* Reorder Success Snackbar */}
+      <Snackbar
+        open={reorderSuccess}
+        autoHideDuration={3000}
+        onClose={() => setReorderSuccess(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <MuiAlert 
+          onClose={() => setReorderSuccess(false)} 
+          severity="success" 
+          sx={{ width: '100%' }}
+        >
+          ✅ Product order updated successfully!
+        </MuiAlert>
+      </Snackbar>
+
+      {/* Reorder Error Snackbar */}
+      <Snackbar
+        open={!!reorderError}
+        autoHideDuration={4000}
+        onClose={() => setReorderError('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <MuiAlert 
+          onClose={() => setReorderError('')} 
+          severity="error" 
+          sx={{ width: '100%' }}
+        >
+          ❌ {reorderError}
         </MuiAlert>
       </Snackbar>
 

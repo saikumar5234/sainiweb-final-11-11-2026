@@ -289,7 +289,6 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
     user?.user?.email ||
     user?.userName ||
     (isSuperAdminHeader ? 'Super Admin' : 'User');
-
   // Function to translate text using MyMemory API
   const translateBannerText = async (text, targetLang) => {
     try {
@@ -551,6 +550,23 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
     // User management is handled through notification bell icon
   ];
 
+  const getNavButtonSx = (isActive = false) => ({
+    fontWeight: isActive ? 700 : 600,
+    color: isActive ? '#111' : 'inherit',
+    borderBottom: isActive ? '3px solid #111' : 'none',
+    borderRadius: 2,
+    px: 2.5,
+    py: 1.2,
+    transition: 'all 0.2s',
+    backgroundColor: isActive ? 'rgba(0,0,0,0.04)' : 'transparent',
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+      transform: 'scale(1.05)',
+      boxShadow: theme.shadows[2],
+      color: '#111',
+    },
+  });
+
   const drawer = (
     <Box sx={{ width: 250 }}>
       <Box sx={{ p: 2, textAlign: 'center' }}>
@@ -560,7 +576,9 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
       </Box>
       <Divider />
       <List>
-        {navButtons.map((btn, idx) => (
+        {navButtons.map((btn) => {
+          const isActive = Boolean(btn.path && location.pathname === btn.path);
+          return (
           <ListItem
             button
             key={btn.label}
@@ -568,18 +586,23 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
               setMobileOpen(false);
               btn.path ? navigate(btn.path) : btn.action && btn.action();
             }}
-            selected={btn.path && location.pathname === btn.path}
-            sx={btn.path && location.pathname === btn.path ? {
-              backgroundColor: theme.palette.primary.main,
-              color: '#fff',
-              fontWeight: 700,
-              '&:hover': { backgroundColor: theme.palette.primary.dark }
-            } : {}}
+            selected={isActive}
+            sx={{
+              backgroundColor: isActive ? theme.palette.primary.main : 'transparent',
+              color: isActive ? '#fff' : 'inherit',
+              fontWeight: isActive ? 700 : 400,
+              transition: 'all 0.2s',
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+                color: '#111',
+              },
+            }}
           >
             {btn.icon}
             <ListItemText primary={btn.label} sx={{ ml: 1 }} />
           </ListItem>
-        ))}
+          );
+        })}
       </List>
     </Box>
   );
@@ -609,29 +632,14 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
               {appName}
             </Typography>
             {!isMobile && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                 {navButtons.map((btn, idx) => btn.path ? (
                   <Button
                     key={btn.label}
                     color="inherit"
                     startIcon={btn.icon}
                     onClick={() => navigate(btn.path)}
-                    sx={{
-                      fontWeight: location.pathname === btn.path ? 700 : 600,
-                      color: location.pathname === btn.path ? '#111' : 'inherit',
-                      borderBottom: location.pathname === btn.path ? '3px solid #111' : 'none',
-                      borderRadius: 2,
-                      px: 2.5,
-                      py: 1.2,
-                      transition: 'all 0.2s',
-                      backgroundColor: location.pathname === btn.path ? 'rgba(0,0,0,0.04)' : 'transparent',
-                      '&:hover': {
-                        backgroundColor: theme.palette.action.hover,
-                        transform: 'scale(1.05)',
-                        boxShadow: theme.shadows[2],
-                        color: '#111',
-                      },
-                    }}
+                    sx={getNavButtonSx(location.pathname === btn.path)}
                   >
                     {btn.label}
                   </Button>
@@ -641,7 +649,7 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
                     color="inherit"
                     startIcon={btn.icon}
                     onClick={btn.action}
-                    sx={{ fontWeight: 600, borderRadius: 2, px: 2.5, py: 1.2, transition: 'all 0.2s', '&:hover': { backgroundColor: theme.palette.action.hover, transform: 'scale(1.05)', boxShadow: theme.shadows[2] } }}
+                    sx={getNavButtonSx()}
                   >
                     {btn.label}
                   </Button>

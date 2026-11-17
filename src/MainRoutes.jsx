@@ -9,7 +9,7 @@ import SuperAdminDashboard from './SuperAdminDashboard.jsx';
 function MainRoutes({ user }) {
   return (
     <Routes>
-      <Route path="/" element={<TableView />} />
+      <Route path="/" element={<TableView user={user} />} />
       <Route path="/analytics/:productId?" element={<PriceAnalytics />} />
       <Route path="/users" element={<UserManagement />} />
       <Route path="/profile" element={<Profile user={user} />} />

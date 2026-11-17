@@ -5,6 +5,7 @@ import { CheckCircle, Cancel, Download } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format } from 'date-fns';
 import { API_ENDPOINTS } from './config.js';
 import * as XLSX from 'xlsx';
 
@@ -16,6 +17,8 @@ const formatTime = (seconds) => {
   const s = seconds % 60;
   return `${h ? h + 'h ' : ''}${m ? m + 'm ' : ''}${s ? s + 's' : ''}`.trim();
 };
+
+const formatDate = (date) => format(date, 'dd/MM/yyyy');
 
 const UserManagement = () => {
   // Load approval status from localStorage on mount
@@ -128,31 +131,16 @@ const UserManagement = () => {
 
         console.log(`Filtering sessions from ${startDateStr} to ${endDateStr} for range: ${range}`);
 
-        // Create a map of summary data by mobile/id for quick lookup
-        const summaryMap = new Map();
-        if (summaryJson.success && Array.isArray(summaryJson.users)) {
-          summaryJson.users.forEach(summaryUser => {
-            const mobile = (summaryUser.userMobile || '').replace(/\D/g, '');
-            if (mobile) {
-              summaryMap.set(mobile, summaryUser);
-            }
-            if (summaryUser.userId) {
-              summaryMap.set(`id_${summaryUser.userId}`, summaryUser);
-            }
-          });
-        }
-
         // Start with all users from /api/users and merge summary data
         // Only show users that exist in the users table (from /api/users)
         const allUsersMap = new Map();
         
         // First, add all users from /api/users (these are the actual users in the database)
         usersData.forEach(userDetail => {
-          const mobile = (userDetail.mobile || '').replace(/\D/g, '');
-          const key = mobile || `id_${userDetail.id}`;
+          const mobile = String(userDetail.mobile || '').replace(/\D/g, '');
           
           // Create user object with data from /api/users
-          allUsersMap.set(key, {
+          const user = {
             id: userDetail.id,
             userId: userDetail.id,
             userMobile: userDetail.mobile,
@@ -166,19 +154,33 @@ const UserManagement = () => {
             totalTimeSpent: 0,
             totalTimeFormatted: '0s',
             totalSessions: 0
-          });
+          };
+
+          if (mobile) {
+            allUsersMap.set(mobile, user);
+          }
+          if (userDetail.id != null) {
+            allUsersMap.set(`id_${userDetail.id}`, user);
+          }
+          if (!mobile && userDetail.id == null) {
+            allUsersMap.set(`user_${allUsersMap.size}`, user);
+          }
         });
 
         // Merge summary data into users (only for users that exist in /api/users)
         if (summaryJson.success && Array.isArray(summaryJson.users)) {
           summaryJson.users.forEach(summaryUser => {
-            const mobile = (summaryUser.userMobile || '').replace(/\D/g, '');
-            const key = mobile || (summaryUser.userId ? `id_${summaryUser.userId}` : null);
+            const mobile = String(summaryUser.userMobile || '').replace(/\D/g, '');
+            const summaryUserId = summaryUser.userId == null ? '' : String(summaryUser.userId);
+            const existingUser = (mobile && allUsersMap.get(mobile)) ||
+              (summaryUserId && (
+                allUsersMap.get(`id_${summaryUserId}`) ||
+                allUsersMap.get(summaryUserId)
+              ));
             
             // Only merge if user exists in /api/users (don't add new users from summary)
-            if (key && allUsersMap.has(key)) {
+            if (existingUser) {
               // Merge summary data
-              const existingUser = allUsersMap.get(key);
               existingUser.totalTimeSpent = summaryUser.totalTimeSpent || 0;
               existingUser.totalTimeFormatted = summaryUser.totalTimeFormatted || '0s';
               existingUser.totalSessions = summaryUser.totalSessions || 0;
@@ -193,7 +195,7 @@ const UserManagement = () => {
         }
         
         // Convert map to array - only users from /api/users (actual database users)
-        const uniqueUsers = Array.from(allUsersMap.values());
+        const uniqueUsers = Array.from(new Set(allUsersMap.values()));
 
         const transformed = uniqueUsers.map((user, index) => {
           // Construct userName from firstName and lastName (already in user object)
@@ -209,14 +211,27 @@ const UserManagement = () => {
           // Get mobile number
           const userMobile = user.userMobile || user.mobile || 'N/A';
           
-          // filter this user's sessions for the selected date range
-          const rangeSessions = (sessionsJson.sessions || []).filter((s) => {
-            // Match by userId or mobile number
-            const userMatch = (s.userId === user.userId) || 
-                             (s.userMobile === user.userMobile) ||
-                             (s.userEmail && user.userEmail && s.userEmail === user.userEmail);
-            
-            if (!userMatch) return false;
+          const userSessions = (Array.isArray(sessionsJson.sessions) ? sessionsJson.sessions : []).filter((s) => {
+            const sessionUserId = s.userId == null ? '' : String(s.userId);
+            const userId = user.userId == null ? '' : String(user.userId);
+            const sessionMobile = String(s.userMobile || '').replace(/\D/g, '');
+            const userMobile = String(user.userMobile || '').replace(/\D/g, '');
+            const sessionEmail = String(s.userEmail || '').toLowerCase();
+            const userEmail = String(user.userEmail || '').toLowerCase();
+
+            return (sessionUserId && sessionUserId === userId) ||
+              (sessionMobile && sessionMobile === userMobile) ||
+              (sessionEmail && sessionEmail === userEmail);
+          });
+
+          const getSessionDuration = (session) => parseInt(session.sessionDuration, 10) || 0;
+          const totalSessionSeconds = userSessions.reduce(
+            (sum, session) => sum + getSessionDuration(session),
+            0
+          );
+
+          // Filter this user's sessions for the selected date range.
+          const rangeSessions = userSessions.filter((s) => {
             
             const sessionDate = s.sessionStart?.split('T')[0] || s.lastSessionDate?.split('T')[0];
             if (!sessionDate) return false;
@@ -225,9 +240,14 @@ const UserManagement = () => {
 
           // sum session durations for the selected range
           const rangeSeconds = rangeSessions.reduce((sum, s) => {
-            const duration = parseInt(s.sessionDuration) || 0;
-            return sum + duration;
+            return sum + getSessionDuration(s);
           }, 0);
+          const summaryTotalSeconds = Number(user.totalTimeSpent);
+          const totalTimeSpent = summaryTotalSeconds > 0
+            ? (user.totalTimeFormatted && user.totalTimeFormatted !== '0s'
+              ? user.totalTimeFormatted
+              : formatTime(summaryTotalSeconds))
+            : formatTime(totalSessionSeconds);
 
           // Check if user is in pending approvals (match by mobile, email, or id)
           const pendingUser = Array.isArray(pendingJson) ? 
@@ -246,7 +266,7 @@ const UserManagement = () => {
             userEmail: user.userEmail || userMobile || 'N/A',
             userGstNumber: gstNumber, 
             todaysTimeSpent: formatTime(rangeSeconds || 0),
-            totalTimeSpent: user.totalTimeFormatted || formatTime(user.totalTimeSpent || 0),
+            totalTimeSpent,
             isPending: !!pendingUser || (user.status === 'PENDING'),
             pendingId: pendingUser?.id || (user.status === 'PENDING' ? (user.id || user.userId) : null), // Store pending approval ID if exists
             rangeSeconds: rangeSeconds, // Store raw seconds for sorting/filtering
@@ -412,7 +432,7 @@ const UserManagement = () => {
     
     switch (selectedRange) {
       case '1d':
-        return isToday ? "Today's Time Spent" : `${selectedDate.toLocaleDateString()} Time Spent`;
+        return isToday ? "Today's Time Spent" : `${formatDate(selectedDate)} Time Spent`;
       case '1w':
         return "1 Week Time Spent";
       case '1m':
@@ -489,7 +509,7 @@ const UserManagement = () => {
       const wb = XLSX.utils.book_new();
       
       // Add metadata rows (title and date range)
-      const dateRangeText = `Date Range: ${selectedDate.toLocaleDateString()}${selectedRange !== '1d' ? ` - ${endDate.toLocaleDateString()}` : ''} (${selectedRange.toUpperCase()})`;
+      const dateRangeText = `Date Range: ${formatDate(selectedDate)}${selectedRange !== '1d' ? ` - ${formatDate(endDate)}` : ''} (${selectedRange.toUpperCase()})`;
       const metadata = [
         ['User Management Report'],
         [dateRangeText],
@@ -584,7 +604,12 @@ const UserManagement = () => {
           }
 
           return (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              '& > .MuiTypography-root': { minWidth: 90, flexShrink: 0 }
+            }}>
               {status === 'pending' ? (
                 <>
                   <Typography variant="body2" color="warning.main" sx={{ fontWeight: 'bold' }}>
@@ -713,6 +738,7 @@ const UserManagement = () => {
             label="Select Date"
             value={selectedDate}
             onChange={handleDateChange}
+            format="dd/MM/yyyy"
             slotProps={{
               textField: { size: 'small', sx: { minWidth: 150 } }
             }}
@@ -744,7 +770,7 @@ const UserManagement = () => {
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ p: 2, backgroundColor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', flex: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            <strong>Showing data for:</strong> {selectedDate.toLocaleDateString()} 
+            <strong>Showing data for:</strong> {formatDate(selectedDate)}
             {selectedRange !== '1d' && (
               <span> to {(() => {
                 const endDate = new Date(selectedDate);
@@ -755,7 +781,7 @@ const UserManagement = () => {
                   case '6m': endDate.setMonth(endDate.getMonth() + 6); endDate.setDate(endDate.getDate() - 1); break;
                   default: break;
                 }
-                return endDate.toLocaleDateString();
+                return formatDate(endDate);
               })()}
             </span>
             )}

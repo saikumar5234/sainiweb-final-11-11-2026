@@ -34,8 +34,9 @@ import { useTranslation } from 'react-i18next';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
-function TableView() {
+function TableView({ user }) {
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [data, setData] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editField, setEditField] = useState(null); // 'price' | 'images' | 'both' | null
@@ -114,8 +115,42 @@ function TableView() {
       return '';
     }
   });
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const { i18n, t } = useTranslation();
   const navigate = useNavigate();
+  const isSuperAdmin = Boolean(
+    user?.isSuperAdmin ||
+    user?.user?.isSuperAdmin ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.user?.role === 'SUPER_ADMIN'
+  );
+  const isAdmin = Boolean(
+    user?.isAdmin ||
+    user?.user?.isAdmin ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'SUB_ADMIN' ||
+    user?.user?.role === 'ADMIN' ||
+    user?.user?.role === 'SUB_ADMIN'
+  );
+  const greetingName = isSuperAdmin ? 'Pramod' : isAdmin ? 'Admin' : null;
+  const roleLabel = isSuperAdmin ? 'SUPER ADMIN' : isAdmin ? 'ADMIN' : null;
+  const welcomeDescription = isSuperAdmin
+    ? "You're in control of everything. Manage your business and operations from one place."
+    : isAdmin
+      ? 'Welcome to Saini Dry Fruits. Manage your products, customers, and daily business activities.'
+      : null;
+  const hour = currentTime.getHours();
+  const timeGreeting = hour >= 5 && hour < 12
+    ? { text: 'Good Morning', emoji: '☀️' }
+    : hour >= 12 && hour < 17
+      ? { text: 'Good Afternoon', emoji: '🌤️' }
+      : hour >= 17 && hour < 21
+        ? { text: 'Good Evening', emoji: '🌙' }
+        : { text: 'Welcome Back', emoji: '👋' };
 
   // Helper to check if ID is numeric
   const isNumericId = id => !isNaN(Number(id));
@@ -1895,7 +1930,64 @@ function TableView() {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, gap: 2 }}>
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        mb: 2,
+        gap: 2
+      }}>
+        {greetingName && (
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1.5, rowGap: 0.5 }}>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontSize: { xs: '1.4rem', sm: '1.75rem', md: '2rem' },
+                  fontWeight: 700,
+                  letterSpacing: '0.3px',
+                  lineHeight: 1.2,
+                  color: 'primary.dark'
+                }}
+              >
+                {timeGreeting.text},{' '}
+                <Box
+                  component="span"
+                  sx={{
+                    background: 'linear-gradient(90deg, #1b5e20 0%, #b8860b 100%)',
+                    backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  {greetingName}
+                </Box>
+                ! {timeGreeting.emoji}
+              </Typography>
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  px: 1.1,
+                  py: 0.35,
+                  border: '1px solid',
+                  borderColor: 'primary.light',
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(46, 125, 50, 0.06)'
+                }}
+              >
+                <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'primary.dark' }}>
+                  {roleLabel}
+                </Typography>
+              </Box>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 600 }}>
+              {welcomeDescription}
+            </Typography>
+          </Box>
+        )}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
         <Button
           variant="text"
           color="inherit"
@@ -1983,6 +2075,7 @@ function TableView() {
             Cancel
           </Button>
         )}
+        </Box>
       </Box>
       {/* Show action buttons when products are selected in edit mode */}
       {editMode && Object.keys(rowSelection).filter(key => rowSelection[key]).length > 0 && (

@@ -30,6 +30,7 @@ import {
   PersonAdd
 } from '@mui/icons-material';
 import CircularProgress from '@mui/material/CircularProgress';
+import { format } from 'date-fns';
 import { API_ENDPOINTS, BACKEND_BASE_URL } from './config.js';
 
 // Helper to retrieve current Superadmin JWT token from localStorage
@@ -44,6 +45,12 @@ const getAuthToken = () => {
     return '';
   }
   return '';
+};
+
+const formatCreatedDate = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'N/A' : format(date, 'dd/MM/yyyy');
 };
 
 const SuperAdminDashboard = () => {
@@ -364,7 +371,7 @@ const SuperAdminDashboard = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'N/A'}
+                      {formatCreatedDate(admin.createdAt)}
                     </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Delete">

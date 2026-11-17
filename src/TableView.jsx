@@ -1581,6 +1581,10 @@ function TableView() {
       {
         accessorKey: 'description',
         header: 'Description',
+        size: 220,
+        minSize: 220,
+        maxSize: 220,
+        grow: false,
         filterFn: (row, columnId, filterValue) => {
           const product = row.original;
           const searchValue = String(filterValue || '').toLowerCase().trim();
@@ -1600,10 +1604,23 @@ function TableView() {
         },
         Cell: ({ cell }) => {
           const value = cell.getValue();
-          if (typeof value === 'object' && value !== null) {
-            return value[i18n.language] || value.en || Object.values(value)[0] || '';
-          }
-          return value;
+          const description = typeof value === 'object' && value !== null
+            ? value[i18n.language] || value.en || Object.values(value)[0] || ''
+            : value;
+          return (
+            <Typography
+              variant="body2"
+              sx={{
+                display: 'block',
+                maxWidth: 220,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {description}
+            </Typography>
+          );
         },
       },
       {

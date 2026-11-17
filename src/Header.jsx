@@ -65,6 +65,7 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [dismissedApprovalIds, setDismissedApprovalIds] = useState(() => new Set());
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const [userDetails, setUserDetails] = useState(null);
   const notificationOpen = Boolean(notificationAnchorEl);
@@ -158,7 +159,10 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
     }
   };
 
-  const pendingApprovalsCount = pendingApprovals.length;
+  const notificationApprovals = pendingApprovals.filter(
+    approval => !dismissedApprovalIds.has(approval.id)
+  );
+  const pendingApprovalsCount = notificationApprovals.length;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -199,6 +203,13 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
   };
   const handleNotificationClose = () => {
     setNotificationAnchorEl(null);
+  };
+
+  const handleClearNotifications = () => {
+    setDismissedApprovalIds(previousIds => new Set([
+      ...previousIds,
+      ...notificationApprovals.map(approval => approval.id)
+    ]));
   };
 
   const handleApproveUser = async (userId) => {
@@ -741,11 +752,21 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
           }}
         >
           <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <NotificationsIcon color="primary" />
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                Notifications
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <NotificationsIcon color="primary" />
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  Notifications
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                startIcon={<DeleteIcon fontSize="small" />}
+                onClick={handleClearNotifications}
+                disabled={notificationApprovals.length === 0}
+              >
+                Clear
+              </Button>
             </Box>
             <Typography variant="body2" color="text.secondary">
               {pendingApprovalsCount} pending approvals
@@ -778,7 +799,11 @@ function Header({ user, onLogout, onHomeClick, onUpdatePriceClick, onAddGreeting
                 scrollbarColor: '#e0e0e0 transparent',
               }}
             >
-              {pendingApprovals.map((user) => {
+              {notificationApprovals.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                  No notifications
+                </Typography>
+              ) : notificationApprovals.map((user) => {
                 // Construct user name from firstName and lastName
                 const firstName = user.firstName || '';
                 const lastName = user.lastName || '';

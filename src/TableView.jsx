@@ -2118,6 +2118,7 @@ function TableView({ user }) {
         data={editMode ? editedData.filter(p => isNumericId(p.id)) : data.filter(p => isNumericId(p.id))}
         enablePagination={false}
         enableRowSelection={editMode}
+        enableColumnPinning
         enableGlobalFilter={true}
         manualFiltering={false}
         enableColumnFilters={false}
@@ -2128,32 +2129,28 @@ function TableView({ user }) {
         }}
         displayColumnDefOptions={{
           'mrt-row-drag': {
-            header: '',
-            Header: () => (
-              <Tooltip title="Drag & drop to reorder products">
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <DragIndicatorIcon fontSize="small" sx={{ color: '#111 !important' }} />
-                </Box>
-              </Tooltip>
-            ),
-            size: 40,
+            header: 'Move',
+            size: 70,
             grow: false,
             muiTableHeadCellProps: {
+              align: 'center',
               sx: {
-                width: '40px',
-                minWidth: '40px',
-                maxWidth: '40px',
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                fontWeight: 700,
+                width: '70px',
+                minWidth: '70px',
+                maxWidth: '70px',
                 p: '0 4px',
-                textAlign: 'center',
               },
             },
             muiTableBodyCellProps: {
+              align: 'center',
               sx: {
-                width: '40px',
-                minWidth: '40px',
-                maxWidth: '40px',
+                width: '70px',
+                minWidth: '70px',
+                maxWidth: '70px',
                 p: '0 4px',
-                textAlign: 'center',
               },
             },
           },
@@ -2194,6 +2191,7 @@ function TableView({ user }) {
         onGlobalFilterChange={setGlobalFilter}
         initialState={{
           density: 'compact',
+          columnPinning: { left: ['mrt-row-select'] },
         }}
         muiTableBodyRowProps={({ row, table }) => {
           const disabled = row?.original?.isDisabled;

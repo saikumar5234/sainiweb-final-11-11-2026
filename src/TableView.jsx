@@ -2080,7 +2080,7 @@ function TableView({ user }) {
       {/* Show action buttons when products are selected in edit mode */}
       {editMode && Object.keys(rowSelection).filter(key => rowSelection[key]).length > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2, gap: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', mr: 2, color: '#000' }}>
             {Object.keys(rowSelection).filter(key => rowSelection[key]).length} product(s) selected
           </Typography>
           <Button
